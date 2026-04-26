@@ -130,32 +130,40 @@ function NewComplaintForm() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-
-    // Manually set values controlled by state (not native select or hidden inputs)
-    formData.set('department_id', departmentId);
-    formData.set('category', category);
-    formData.set('priority', selectedPriority);
 
     if (!departmentId) {
       toast.error('Please select a department.');
       return;
     }
 
+    // Capture non-state form values synchronously before entering the async transition
+    const form = e.currentTarget;
+    const description  = (form.elements.namedItem('description')  as HTMLTextAreaElement)?.value ?? '';
+    const isAnonymous  = (form.elements.namedItem('is_anonymous') as HTMLInputElement)?.checked ?? false;
+
     startTransition(async () => {
       // Upload image first if one is attached
+      let imageUrl: string | null = null;
       if (imageFile && !uploadedUrl) {
         setUploading(true);
-        const url = await uploadImageToStorage();
+        imageUrl = await uploadImageToStorage();
         setUploading(false);
-        if (url) {
-          setUploadedUrl(url);
-          formData.set('image_url', url);
-        }
+        if (imageUrl) setUploadedUrl(imageUrl);
       } else if (uploadedUrl) {
-        formData.set('image_url', uploadedUrl);
+        imageUrl = uploadedUrl;
       }
+
+      // Build FormData fresh right before the server action call so
+      // state values (departmentId, category, selectedPriority) are
+      // taken from the closure snapshot at submit time — not from a
+      // DOM snapshot that could be stale after async image upload.
+      const formData = new FormData();
+      formData.set('department_id', departmentId);
+      formData.set('category', category);
+      formData.set('priority', selectedPriority);
+      formData.set('description', description);
+      formData.set('is_anonymous', isAnonymous ? 'true' : '');
+      if (imageUrl) formData.set('image_url', imageUrl);
 
       const result = await submitComplaint(formData);
       if (result?.error) {
