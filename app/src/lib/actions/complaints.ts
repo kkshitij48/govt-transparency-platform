@@ -20,8 +20,16 @@ export async function submitComplaint(formData: FormData) {
     is_anonymous: formData.get('is_anonymous') === 'true',
   };
 
+  console.log('[submitComplaint] raw fields:', {
+    department_id: raw.department_id,
+    department_id_length: raw.department_id?.length,
+    has_description: !!raw.description,
+    priority: raw.priority,
+  });
+
   const parsed = complaintSchema.safeParse(raw);
   if (!parsed.success) {
+    console.error('[submitComplaint] validation failed:', parsed.error.issues);
     return { error: parsed.error.issues[0].message };
   }
 
